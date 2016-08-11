@@ -31,6 +31,7 @@ module Pod
             ['--no-private', 'Lint includes checks that apply only to public repos'],
             ['--commit-message="Fix bug in pod"', 'Add custom commit message. ' \
             'Opens default editor if no commit message is specified.'],
+            ['--use-json', 'Push JSON spec to repo'],
           ].concat(super)
         end
 
@@ -38,20 +39,21 @@ module Pod
           @allow_warnings = argv.flag?('allow-warnings')
           @local_only = argv.flag?('local-only')
           @repo = argv.shift_argument
-          @source = config.sources_manager.sources([@repo]).first unless @repo.nil?
+          @source = source_for_repo
           @source_urls = argv.option('sources', config.sources_manager.all.map(&:url).join(',')).split(',')
           @podspec = argv.shift_argument
           @use_frameworks = !argv.flag?('use-libraries')
           @private = argv.flag?('private', true)
           @message = argv.option('commit-message')
           @commit_message = argv.flag?('commit-message', false)
+          @use_json = argv.flag?('use-json')
           super
         end
 
         def validate!
           super
-          help! 'A spec-repo name is required.' unless @repo
-          unless @source.repo.directory?
+          help! 'A spec-repo name or url is required.' unless @repo
+          unless @source && @source.repo.directory?
             raise Informative,
                   "Unable to find the `#{@repo}` repo. " \
                   'If it has not yet been cloned, add it via `pod repo add`.'
@@ -177,9 +179,16 @@ module Pod
             else
               message = "[Add] #{spec}"
             end
-
             FileUtils.mkdir_p(output_path)
-            FileUtils.cp(spec_file, output_path)
+
+            if @use_json
+              json_file_name = "#{spec.name}.podspec.json"
+              json_file = File.join(output_path, json_file_name)
+              File.open(json_file, 'w') { |file| file.write(spec.to_pretty_json) }
+            else
+              FileUtils.cp(spec_file, output_path)
+            end
+
             Dir.chdir(repo_dir) do
               # only commit if modified
               if git!('status', '--porcelain').include?(spec.name)
@@ -232,6 +241,18 @@ module Pod
         #
         def count
           podspec_files.count
+        end
+
+        # Returns source for @repo
+        #
+        # @note If URL is invalid or repo doesn't exist, validate! will throw the error
+        #
+        # @return [Source]
+        #
+        def source_for_repo
+          config.sources_manager.source_with_name_or_url(@repo) unless @repo.nil?
+        rescue
+          nil
         end
 
         #---------------------------------------------------------------------#

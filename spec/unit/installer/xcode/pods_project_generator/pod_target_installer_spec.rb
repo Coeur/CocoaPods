@@ -90,6 +90,15 @@ module Pod
               end
             end
 
+            it 'sets an empty codesigning identity for iOS/tvOS/watchOS' do
+              @installer.install!
+              @project.targets.first.build_configurations.each do |config|
+                config.build_settings['CODE_SIGN_IDENTITY[sdk=appletvos*]'].should == ''
+                config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'].should == ''
+                config.build_settings['CODE_SIGN_IDENTITY[sdk=watchos*]'].should == ''
+              end
+            end
+
             #--------------------------------------#
 
             describe 'headers folder paths' do
@@ -107,6 +116,25 @@ module Pod
                 @project.targets.first.build_configurations.each do |config|
                   config.build_settings['PUBLIC_HEADERS_FOLDER_PATH'].should.be.empty
                   config.build_settings['PRIVATE_HEADERS_FOLDER_PATH'].should.be.empty
+                end
+              end
+            end
+
+            #--------------------------------------#
+
+            describe 'setting the SWIFT_VERSION' do
+              it 'does not set the version if not included by the target definition' do
+                @installer.install!
+                @project.targets.first.build_configurations.each do |config|
+                  config.build_settings.should.not.include?('SWIFT_VERSION')
+                end
+              end
+
+              it 'sets the version to the one specified in the target definition' do
+                @target_definition.swift_version = '3.0'
+                @installer.install!
+                @project.targets.first.build_configurations.each do |config|
+                  config.build_settings['SWIFT_VERSION'].should == '3.0'
                 end
               end
             end

@@ -434,7 +434,7 @@ module Pod
     # for all available platforms with xcodebuild.
     #
     def install_pod
-      %i(verify_no_duplicate_framework_names
+      %i(verify_no_duplicate_framework_and_library_names
          verify_no_static_framework_transitive_dependencies
          verify_framework_usage generate_pods_project integrate_user_project
          perform_post_install_actions).each { |m| @installer.send(m) }
@@ -722,13 +722,13 @@ module Pod
       case consumer.platform_name
       when :ios
         command += %w(CODE_SIGN_IDENTITY=- -sdk iphonesimulator)
-        command += Fourflusher::SimControl.new.destination('iPhone 4s', deployment_target)
+        command += Fourflusher::SimControl.new.destination(:oldest, 'iOS', deployment_target)
       when :watchos
         command += %w(CODE_SIGN_IDENTITY=- -sdk watchsimulator)
-        command += Fourflusher::SimControl.new.destination('Apple Watch - 38mm', deployment_target)
+        command += Fourflusher::SimControl.new.destination(:oldest, 'watchOS', deployment_target)
       when :tvos
         command += %w(CODE_SIGN_IDENTITY=- -sdk appletvsimulator)
-        command += Fourflusher::SimControl.new.destination('Apple TV 1080p', deployment_target)
+        command += Fourflusher::SimControl.new.destination(:oldest, 'tvOS', deployment_target)
       end
 
       output, status = Dir.chdir(validation_dir) { _xcodebuild(command) }

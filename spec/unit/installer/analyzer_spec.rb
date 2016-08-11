@@ -671,6 +671,109 @@ module Pod
 
       #-------------------------------------------------------------------------#
 
+      describe 'extension targets' do
+        before do
+          SpecHelper.create_sample_app_copy_from_fixture('Sample Extensions Project')
+          @podfile = Pod::Podfile.new do
+            source SpecHelper.test_repo_url
+            platform :ios, '6.0'
+            project 'Sample Extensions Project/Sample Extensions Project'
+
+            target 'Sample Extensions Project' do
+              pod 'JSONKit', '1.4'
+            end
+
+            target 'Today Extension' do
+              pod 'monkey'
+            end
+          end
+        end
+
+        it 'copies extension pod targets to host target, when use_frameworks!' do
+          @podfile.use_frameworks!
+          analyzer = Pod::Installer::Analyzer.new(config.sandbox, @podfile)
+          result = analyzer.analyze
+
+          result.targets.flat_map { |at| at.pod_targets.map { |pt| "#{at.name}/#{pt.name}" } }.sort.should == [
+            'Pods-Sample Extensions Project/JSONKit',
+            'Pods-Sample Extensions Project/monkey',
+            'Pods-Today Extension/monkey',
+          ].sort
+        end
+
+        it 'does not copy extension pod targets to host target, when not use_frameworks!' do
+          analyzer = Pod::Installer::Analyzer.new(config.sandbox, @podfile)
+          result = analyzer.analyze
+
+          result.targets.flat_map { |at| at.pod_targets.map { |pt| "#{at.name}/#{pt.name}" } }.sort.should == [
+            'Pods-Sample Extensions Project/JSONKit',
+            'Pods-Today Extension/monkey',
+          ].sort
+        end
+
+        it "copy a framework's pod target, when the framework is in a sub project" do
+          podfile = Pod::Podfile.new do
+            source SpecHelper.test_repo_url
+            use_frameworks!
+            platform :ios, '8.0'
+            project 'SampleProject/SampleProject'
+
+            target 'SampleProject'
+
+            target 'Sample Framework' do
+              project 'SampleProject/Sample Lib/Sample Lib'
+              pod 'monkey'
+            end
+          end
+          analyzer = Pod::Installer::Analyzer.new(config.sandbox, podfile)
+          result = analyzer.analyze
+
+          result.targets.flat_map { |at| at.pod_targets.map { |pt| "#{at.name}/#{pt.name}" } }.sort.should == [
+            'Pods-Sample Framework/monkey',
+          ].sort
+        end
+
+        it "raises when unable to find an extension's host target" do
+          podfile = Pod::Podfile.new do
+            source SpecHelper.test_repo_url
+            use_frameworks!
+            platform :ios, '8.0'
+            project 'Sample Extensions Project/Sample Extensions Project'
+
+            target 'Today Extension' do
+              pod 'monkey'
+            end
+          end
+          analyzer = Pod::Installer::Analyzer.new(config.sandbox, podfile)
+          should.raise Informative do
+            analyzer.analyze
+          end.message.should.match /Unable to find host target for Pods-Today Extension. Please add the host targets for the embedded targets to the Podfile/
+        end
+
+        it 'raises when the extension calls use_frameworks!, but the host target does not' do
+          podfile = Pod::Podfile.new do
+            source SpecHelper.test_repo_url
+            platform :ios, '8.0'
+            project 'Sample Extensions Project/Sample Extensions Project'
+
+            target 'Sample Extensions Project' do
+              pod 'JSONKit', '1.4'
+            end
+
+            target 'Today Extension' do
+              use_frameworks!
+              pod 'monkey'
+            end
+          end
+          analyzer = Pod::Installer::Analyzer.new(config.sandbox, podfile)
+          should.raise Informative do
+            analyzer.analyze
+          end.message.should.match /Pods-Sample Extensions Project must call use_frameworks! because it is hosting an embedded target that calls use_frameworks!/
+        end
+      end
+
+      #-------------------------------------------------------------------------#
+
       describe 'Private helpers' do
         describe '#sources' do
           describe 'when there are no explicit sources' do

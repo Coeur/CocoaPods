@@ -17,6 +17,15 @@ module Pod
       end
     end
 
+    it "complains if it can't get repo url" do
+      Dir.chdir(fixture('banana-lib')) do
+        Command::Repo::Add.any_instance.stubs(:clone_repo)
+        cmd = command('repo', 'push', 'https://github.com/foo/bar.git')
+        e = lambda { cmd.validate! }.should.raise Informative
+        e.message.should.include('Unable to find the `https://github.com/foo/bar.git` repo')
+      end
+    end
+
     it "complains if it can't find a spec" do
       repo_make('test_repo')
       e = lambda { run_command('repo', 'push', 'test_repo') }.should.raise Pod::Informative
@@ -79,7 +88,7 @@ module Pod
       File.open(temporary_directory + 'BananaLib.podspec', 'w') { |f| f.write(spec_clean) }
     end
 
-    it 'refuses to push if the repo is not clean' do
+    it 'refuses to push if the repo is master' do
       Dir.chdir(test_repo_path) do
         `git remote set-url origin https://github.com/CocoaPods/Specs.git`
       end
@@ -99,7 +108,7 @@ module Pod
       (@upstream + 'PushTest/1.4/PushTest.podspec').should.not.exist?
     end
 
-    it 'successfully pushes a spec' do
+    it 'generate a message for commit' do
       cmd = command('repo', 'push', 'master')
       Dir.chdir(@upstream) { `git checkout -b tmp_for_push -q` }
       cmd.expects(:validate_podspec_files).returns(true)
@@ -107,8 +116,33 @@ module Pod
       Pod::UI.output.should.include('[Add] PushTest (1.4)')
       Pod::UI.output.should.include('[Fix] JSONKit (1.4)')
       Pod::UI.output.should.include('[No change] BananaLib (1.0)')
+    end
+
+    it 'successfully pushes a spec' do
+      cmd = command('repo', 'push', 'master')
+      Dir.chdir(@upstream) { `git checkout -b tmp_for_push -q` }
+      cmd.expects(:validate_podspec_files).returns(true)
+      Dir.chdir(temporary_directory) { cmd.run }
       Dir.chdir(@upstream) { `git checkout master -q` }
       (@upstream + 'PushTest/1.4/PushTest.podspec').read.should.include('PushTest')
+    end
+
+    it 'successfully pushes a spec to URL' do
+      cmd = command('repo', 'push', @upstream)
+      Dir.chdir(@upstream) { `git checkout -b tmp_for_push -q` }
+      cmd.expects(:validate_podspec_files).returns(true)
+      Dir.chdir(temporary_directory) { cmd.run }
+      Dir.chdir(@upstream) { `git checkout master -q` }
+      (@upstream + 'PushTest/1.4/PushTest.podspec').read.should.include('PushTest')
+    end
+
+    it 'successfully pushes converted JSON podspec' do
+      cmd = command('repo', 'push', 'master', '--use-json')
+      Dir.chdir(@upstream) { `git checkout -b tmp_for_push -q` }
+      cmd.expects(:validate_podspec_files).returns(true)
+      Dir.chdir(temporary_directory) { cmd.run }
+      Dir.chdir(@upstream) { `git checkout master -q` }
+      (@upstream + 'PushTest/1.4/PushTest.podspec.json').read.should.include('PushTest')
     end
 
     it 'initializes with default sources if no custom sources specified' do
