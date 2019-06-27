@@ -50,7 +50,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'ruby-macho',    '~> 1.4'
 
   s.add_development_dependency 'bacon', '~> 1.1'
-  s.add_development_dependency 'bundler', '~> 1.3'
+  s.add_development_dependency 'bundler', '>= 1.3', '< 3'
   s.add_development_dependency 'rake', '~> 10.0'
 
   ## Make sure you can build the gem on older versions of RubyGems too:

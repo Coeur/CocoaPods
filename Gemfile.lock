@@ -264,7 +264,7 @@ PLATFORMS
 DEPENDENCIES
   awesome_print
   bacon
-  bundler (~> 1.3)
+  bundler (>= 1.3, < 3)
   claide!
   clintegracon
   cocoapods!
